@@ -1,0 +1,142 @@
+\UseRawInputEncoding
+\documentclass{article}
+
+% Language setting
+\usepackage[english]{babel}
+\usepackage{pmboxdraw}
+
+\usepackage[a4paper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Homework 02}
+
+\author{Andrea Panceri 1884749}
+
+\begin{document}
+\maketitle
+
+\section{First Question}
+We are using the openssl command [openssl aes-256-cbc -p -in example.txt -out example.enc] that is a command for encrypting using AES algorithm with a 256 bits key and the CBC mode.
+The necessary parameter are the key and the seed(iv), optional parameters are the salt and the password.
+We can run this command without provide salt,key,iv, after this openssl ask to insert a password two time, in this case openssl generate automatically the salt, key and iv, here an example:\\\\
+PS C:/Users/ACER/Desktop>openssl aes-256-cbc -p -in ciao.txt -out ciao.enc\\
+enter AES-256-CBC encryption password:\\
+Verifying - enter AES-256-CBC encryption password:\\
+*** WARNING : deprecated key derivation used.\\
+Using -iter or -pbkdf2 would be better.\\
+salt=6CE6807A9F77F9A1\\
+key=56B23504B96F94FB9DF56621E426CD21D248E37615DB99255B2A9110A180662E\\
+iv =DDF1E950E32C7EA8AEFE1D2E92CE7375\\
+\\
+if we don't provide salt,key and iv, it is important that we insert a password because openssl don't give any error but don't generate the enc file!\\
+For provide the initialization vector we must add -iv IV and this specifies the initialization vector IV as hexadecimal number. If not explicitly given,like we say before, it will be derived from the password. The IV must be an HEX value and have a length of 16-byte otherwise we obtain hex string is too long or too short or invalid if we don't insert a correct hex value.\\\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -p -iv a328eb423ea4c2c950704cd515574e73 -in ciao.txt -out ciao.enc\\
+enter AES-256-CBC encryption password:\\
+Verifying - enter AES-256-CBC encryption password:\\
+*** WARNING : deprecated key derivation used.\\
+Using -iter or -pbkdf2 would be better.\\
+salt=EEB5CD438F72D655\\
+key=9EAD0B7E209D2E2072ED114058394B4F87B108912DE853D6CB1FF4F3A76BF9A8\\
+iv =A328EB423EA4C2C950704CD515574E73\\
+\\
+For provide the key we use -K key with this option allows you to set the key used for encryption or decryption. This is the key directly used by the cipher algorithm.we need to have a key length of 32 byte (256 bit) similar to iv . If no key is given OpenSSL will derive it from a password. This process is described in (RFC-2898).Also we can't use only -K because openssl give this error "iv undefined", if we use -K key we must add also -iv IV, but in this case openssl don't ask for a password, in the decrypting we will use the same key and the same seed.\\\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -p -iv a328eb423ea4c2c950704cd515574e73 -K 39a6c8c1cfe8377af1a0f794de2b9523f00c206c4d4fff0ba15b0a095bac3e57 -in ciao.txt -out ciao.enc\\
+salt=0200000000000000\\
+key=39A6C8C1CFE8377AF1A0F794DE2B9523F00C206C4D4FFF0BA15B0A095BAC3E57\\
+iv =A328EB423EA4C2C950704CD515574E73\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -d -iv a328eb423ea4c2c950704cd515574e73 -K 39a6c8c1cfe8377af1a0f794de2b9523f00c206c4d4fff0ba15b0a095bac3e57 -in ciao.enc -out gr.txt\\
+\\
+For obtain the salt we have different option, we can derive the salt from the password like in precedent operation or use the openssl tags: -salt, -nosalt, -S salt.These options allow to switch salting on or off. With -S salt it is possible to explicitly give its value (in hexadecimal) of exact 16 bytes. Password is optional like we have said before, openssl give this tag: -pass arg
+This specifies the password source. Possible values for arg are pass:password or file:filename, where password is your password and filename file containing the password.In decryption in this case we must add also the tag -pass arg.\\\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -p -iv a328eb423ea4c2c950704cd515574e73 -K 39a6c8c1cfe8377af1a0f794de2b9523f00c206c4d4fff0ba15b0a095bac3e57 -pass pass:fefe -in ciao.txt -out ciao.enc\\
+*** WARNING : deprecated key derivation used.\\
+Using -iter or -pbkdf2 would be better.\\
+salt=6538DD6D110E0D03\\
+key=39A6C8C1CFE8377AF1A0F794DE2B9523F00C206C4D4FFF0BA15B0A095BAC3E57\\
+iv =A328EB423EA4C2C950704CD515574E73\\
+
+\section{Second question}
+When we use encryption with the precedent command, openssl use a deprecated key derivation function, we can seen by this error:\\\\
+*** WARNING : deprecated key derivation used.\\\\
+For these fact Openssl, from the version 1.1.1, give us an additional tag for use a modern key derivation function -pbkdf2. PBKDF2 applies a pseudorandom function, such as hash-based message authentication code (HMAC), to the input password or passphrase along with a salt value and repeats the process many times to produce a derived key, which can then be used as a cryptographic key in subsequent operations. The added computational work makes password cracking much more difficult, and is known as key stretching. On this tag we add another one for obtain a very strong key derivation function -iter num-iterations that is overriding the default count of iterations for the password. High values of iterations increase the time required to brute-force the resulting file, but we increase the needed computational time for each encryption and decryption. PBKDF2 has five input parameters:\\
+\\
+DK = PBKDF2(PRF, Password, Salt, c, dkLen)\\
+where:
+\begin{itemize}
+\item PRF is a pseudorandom function of two parameters with output length hLen (e.g., a keyed HMAC).
+\item Password is the master password from which a derived key is generated.
+\item Salt is a sequence of bits, known as a cryptographic salt.
+\item c is the number of iterations desired.
+\item dkLen is the desired bit-length of the derived key.
+\item DK is the generated derived key.
+\end{itemize}
+We show how to provide a strong password based key derivation function from command line:\\\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -p -pbkdf2 -iter 1000000 -in ciao.txt -out ciao.enc\\
+enter AES-256-CBC encryption password:\\
+Verifying - enter AES-256-CBC encryption password:\\
+salt=1001EECDFBD21AF8\\
+key=832AE75663F2D29E240E9E4B82C1E99886FD47611EA16AF5B46501944D546872\\
+iv =4C5AA2E9901FA42DAD4C286423C7990B\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -d -pbkdf2 -iter 1000000 -in ciao.enc -out c.txt\\
+enter AES-256-CBC decryption password:\\
+\\
+In this way we have encrypted and decrypted correctly.
+
+\section{Third question}
+Now we want discuss the format of the obtained ciphertext, in windows we can use the command 'format-hex name-file | more' for analyze the content of a file in our case of the plaintext and ciphertext. For starting we show the hex version of the plaintext that have the only string 'hello world!':
+\begin{lstlisting}[basicstyle=\tiny]
+PS C:/Users/ACER/Desktop> format-hex ciao.txt | more
+
+   Label: C:/Users/ACER/Desktop/ciao.txt
+
+          Offset Bytes                                           Ascii
+                 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+          ------ ----------------------------------------------- -----
+0000000000000000 68 65 6C 6C 6F 20 77 6F 72 6C 64 21 0D 0A       hello worlÔÇª
+\end{lstlisting}
+it used 14 bytes for represent the content, we know that AES use a block of 16 bytes, so the algorithm will add padding for reach the 16 bytes. The result of encryption can slightly change on the way we add the parameter, but the noticeable difference is when we use salt or not, first show two example in which we add -salt and other where we add -nosalt, after we discuss the result:\\
+\begin{lstlisting}[basicstyle=\tiny]
+WITH SALT
+PS C:/Users/ACER/Desktop> format-hex ./ciphertext | more
+
+   Label: C:/Users/ACER/Desktop/ciphertext
+
+          Offset Bytes                                           Ascii
+                 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+          ------ ----------------------------------------------- -----
+0000000000000000 53 61 6C 74 65 64 5F 5F 2C E7 11 E0 2A ED 89 46 Salted__,├ºÔÇª
+0000000000000010 56 00 74 EE 28 89 4B 4B B4 E3 A8 71 57 6D 13 1D V t├«(´┐¢KK┬┤├úÔÇª
+\end{lstlisting}
+\begin{lstlisting}[basicstyle=\tiny]
+WITHOUT SALT
+PS C:/Users/ACER/Desktop> format-hex ./ciphertext | more
+
+   Label: C:/Users/ACER/Desktop/ciphertext
+
+          Offset Bytes                                           Ascii
+                 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+          ------ ----------------------------------------------- -----
+0000000000000000 56 00 74 EE 28 89 4B 4B B4 E3 A8 71 57 6D 13 1D V t├«(´┐¢KK┬┤├ú┬¿qWm´┐¢´┐¢
+\end{lstlisting}
+We see that like we have said the ciphertext size is a multiple of 16 bytes, with salt we obtain an output of 32 bytes, wihout salt we obtain 16 bytes. This show that using salt the length of the output is bigger and start with a string 'salted\_\_', while without the size is smaller, but in each case the ciphertext is well encrypted and difficult to find any suggestion on the real content of the plaintext. It is important to add that openssl don't store the seed (IV).
+
+\section{Fourth question}
+Now we complete the decryption for each way to encrypt using the command 'openssl aes-256-cbc', that we show in the first question:\\\\
+1.if we use: 'openssl aes-256-cbc -p -in ciao.txt -out ciao.enc' for decrypting is sufficient to use the password used for encryption.\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -d -in ciao.enc -out c.txt\\
+enter AES-256-CBC decryption password:\\\\
+2.if we use: 'openssl aes-256-cbc -p -iv a328eb423ea4c2c950704cd515574e73 -in ciao.txt -out ciao.enc',adding the seed, for decrypting we must add the same seed and use the password used for encryption.\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -d -iv a328eb423ea4c2c950704cd515574e73 -in ciao.enc -out c.txt\\
+enter AES-256-CBC decryption password:\\\\
+3.if we use: 'oopenssl aes-256-cbc -p -iv a328eb423ea4c2c950704cd515574e73 -K 39a6c8c1cfe8377af1a0f794de2b9523f00 c206c4d4fff0ba15b0a095bac3e57 -in ciao.txt -out ciphertext',providing seed and key in the same command, for decrypting must use same key and seed, without providing the password:\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -d -iv a328eb423ea4c2c950704cd515574e73 -K 39a6c8c1cfe8377af1a0f794de2b9523f00c206c4d4fff0ba15b0a095bac3e57 -in ciphertext -out c.txt\\\\
+4.if we use: 'openssl aes-256-cbc -p -iv a328eb423ea4c2c950704cd515574e73 -K 39a6c8c1cfe8377af1a0f794de2b9523f00 c206c4d4fff0ba15b0a095bac3e57 -pass pass:ciao -in ciao.txt -out ciphertext',adding seed, key and password on the command line, for decrypting must passing the same values selevted i ecryption\\
+PS C:/Users/ACER/Desktop> openssl aes-256-cbc -d -iv a328eb423ea4c2c950704cd515574e73 -K 39a6c8c1cfe8377af1a0f794de2b9523f00c206c4d4fff0ba15b0a095bac3e57 -pass pass:ciao -in ciphertext -out c.txt\\\\
+With salt or without it the decyption don't change.
+\end{document}

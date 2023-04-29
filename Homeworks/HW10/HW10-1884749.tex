@@ -1,0 +1,201 @@
+\UseRawInputEncoding
+\documentclass{article}
+
+% Language setting
+\usepackage[english]{babel}
+\usepackage{pmboxdraw}
+
+\usepackage[a4paper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Homework 10\\"Offline dictionary attack"}
+
+\author{Andrea Panceri 1884749}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+An offline dictionary attack is a type of password cracking method in which an attacker pre-computes the hashes of a large number of common words and phrases, and then compares these hashes to the hashed password they are trying to crack. The goal of this attack is to find a match between the pre-computed hashes and the target hashed password, which would allow the attacker to determine the original password.\\
+This type of attack is called "offline" because the attacker does not need to interact with the system that is being attacked in order to perform the attack. Instead, the attacker can simply run the attack on a separate device, using a pre-computed dictionary of hashes.\\
+One of the main advantages of an offline dictionary attack is that it can be very fast, as the attacker does not need to wait for a response from the target system for each attempted password. However, this type of attack is also limited in its effectiveness, as it relies on the assumption that the target password is a common word or phrase that is included in the attacker's pre-computed dictionary. If the target password is not a common word or phrase, or if it has been modified in some way (e.g., by adding numbers or special characters), then the attack is unlikely to be successful.\\
+To protect against offline dictionary attacks, it is important to use strong, unique passwords that are not based on common words or phrases, and to use password hashing algorithms that are resistant to pre-computation attacks. It is also a good idea to use multi-factor authentication, which requires the user to provide additional evidence of their identity in order to gain access to a system.\\
+\section{Script}
+We have this file with username:salt:hashed\_password, the hashing function used is sha256:
+\begin{lstlisting}
+user01:30:e9b5067a9ac080a346df5ff6fdda9c0ee015ca85f1e689c0eb129e8a3799e1a7
+user02:22:78b868e79d1efeb8dd4fe475696667b0710607dc96372173ee62d01ed2f721d1
+user03:81:cd778a65aff718dc3dc2fa5baa8afd7086e9d9569d5378c4e873febb2459b86c
+user04:67:39e922f77cf18c4807e73624a518526e0a02fe7e51f8c90a63b811a647aff621
+user05:47:397f5af8ba556c09ad2ad96d5c2c5f555ffcbc36e1722a68d24db7ecb6baf92c
+user06:10:2034444c0692c122fef1edbed3ddbf110c1623b00afeb009741076dde4288368
+user07:45:2de7f0807464d3fd0a7b6209168cc3387b0d61e3048a18b673a89b0bfca04968
+user08:96:cf7152cf48e93ff0fb9adc50c74dfe4cd98fff15cba23de0467e610e356a6d2b
+user09:49:6e5bb8d71d7320ea65a032d42d56a5e431563231ac0bde932a7c5359d83eace4
+user10:9:65f1d91cb5d4745410f91aec14209bb8f17537f401a6d298dd9d76425950f616
+\end{lstlisting}
+Now we report two different approach with python
+\begin{lstlisting}
+from urllib.request import urlopen, hashlib
+
+# Read the file containing the username, salt, and hashed password
+with open("passwd_file", "r") as f:
+    lines = f.readlines()
+
+# Load the dictionary of common words and phrases
+with open("dictionary.txt", "r") as f:
+    words = f.read().splitlines()
+
+# Iterate over each user in the password file
+for user in lines:
+    # Split the line into the username, salt, and hashed password
+    username, salt, hashed_password = user.strip().split(":")
+
+    # Iterate over each word in the dictionary
+    for word in words:
+        # Hash the word with the salt and compare it to the hashed password
+        word_hash = hashlib.sha256((word.strip() + salt).encode()).hexdigest()
+        if word_hash == hashed_password:
+            print(f"Found password for user {username}: {word}")
+            break
+\end{lstlisting}
+In this simple script we load the password file given by email, and a local dictionary downloaded from internet (there are many available. For each user we try to hash with sha256 each word in dictionary appending the salt after the word, and compare with the hashed password in the file. Another approach is this in which we don't use a local file but load a dictionary from an online github repository:
+\begin{lstlisting}
+from urllib.request import urlopen, hashlib
+
+# Read the file containing the username, salt, and hashed password
+with open("passwd_file", "r") as f:
+    lines = f.readlines()
+
+# Load the dictionary of common words and phrases
+words = str(urlopen(
+    'https://raw.githubusercontent.com/Legoclones/password-cracking/
+        main/dictionaries/engDictionaryLarge.txt').read(), 'utf-8')
+
+# Iterate over each user in the password file
+for user in lines:
+    # Split the line into the username, salt, and hashed password
+    username, salt, hashed_password = user.strip().split(":")
+
+    # Iterate over each word in the dictionary
+    for word in words.split('\n'):
+        # Hash the word with the salt and compare it to the hashed password
+        word_hash = hashlib.sha256((word.strip() + salt).encode()).hexdigest()
+        if word_hash == hashed_password:
+            print(f"Found password for user {username}: {word}")
+            break
+
+\end{lstlisting}
+I try the first method, i download many dictionary with millions of leaked password (like rockyou leak) but i don't obtain any match. Also the second method i try to use very large file with all combination of words and symnols and don't obtain nothing.\\
+I try another approach but it is needed i very high computational power, i report the code:
+\begin{lstlisting}[basicstyle=\tiny]
+from urllib.request import urlopen, hashlib
+import string
+
+characters = list(string.printable)  # all typeable characters
+
+# Read the file containing the username, salt, and hashed password
+with open("passwd_file", "r") as f:
+    lines = f.readlines()
+
+for first in characters:
+    for user in lines:
+        # Split the line into the username, salt, and hashed password
+        username, salt, hashed_password = user.strip().split(":")
+        word = first
+        # Hash the word with the salt and compare it to the hashed password
+        word_hash = hashlib.sha256((word.strip() + salt).encode()).hexdigest()
+        if word_hash == hashed_password:
+            print(f"Found password for user {username}: {word}")
+            break
+    for second in characters:
+        for user in lines:
+            # Split the line into the username, salt, and hashed password
+            username, salt, hashed_password = user.strip().split(":")
+            word = first + second
+            # Hash the word with the salt and compare it to the hashed password
+            word_hash = hashlib.sha256(
+                (word.strip() + salt).encode()).hexdigest()
+            if word_hash == hashed_password:
+                print(f"Found password for user {username}: {word}")
+                break
+        for third in characters:
+            for user in lines:
+                # Split the line into the username, salt, and hashed password
+                username, salt, hashed_password = user.strip().split(":")
+                word = first + second + third
+                # Hash the word with the salt and compare it to the hashed password
+                word_hash = hashlib.sha256(
+                    (word.strip() + salt).encode()).hexdigest()
+                if word_hash == hashed_password:
+                    print(f"Found password for user {username}: {word}")
+                    break
+            for fourth in characters:
+                for user in lines:
+                    # Split the line into the username, salt, and hashed password
+                    username, salt, hashed_password = user.strip().split(":")
+                    word = first + second + third + fourth
+                    # Hash the word with the salt and compare it to the hashed password
+                    word_hash = hashlib.sha256(
+                        (word.strip() + salt).encode()).hexdigest()
+                    if word_hash == hashed_password:
+                        print(f"Found password for user {username}: {word}")
+                        break
+                for fifth in characters:
+                    for user in lines:
+                        # Split the line into the username, salt, and hashed password
+                        username, salt, hashed_password = user.strip().split(":")
+                        word = first + second + third + fourth + fifth
+                        # Hash the word with the salt and compare it to the hashed password
+                        word_hash = hashlib.sha256(
+                            (word.strip() + salt).encode()).hexdigest()
+                        if word_hash == hashed_password:
+                            print(f"Found password for user {username}: {word}")
+                            break
+                    for sixth in characters:
+                        for user in lines:
+                            # Split the line into the username, salt, and hashed password
+                            username, salt, hashed_password = user.strip().split(":")
+                            word = first + second + third + fourth + fifth + sixth
+                            # Hash the word with the salt and compare it to the hashed password
+                            word_hash = hashlib.sha256(
+                                (word.strip() + salt).encode()).hexdigest()
+                            if word_hash == hashed_password:
+                                print(f"Found password for user {username}: {word}")
+                                break
+                        for seventh in characters:
+                            for user in lines:
+                                # Split the line into the username, salt, and hashed password
+                                username, salt, hashed_password = user.strip().split(":")
+                                word = first + second + third + fourth + fifth + sixth + seventh
+                                # Hash the word with the salt and compare it to the hashed password
+                                word_hash = hashlib.sha256(
+                                    (word.strip() + salt).encode()).hexdigest()
+                                if word_hash == hashed_password:
+                                    print(f"Found password for user {username}: {word}")
+                                    break
+                            for eigth in characters:
+                                print(word)
+                                for user in lines:
+                                    # Split the line into the username, salt, and hashed password
+                                    username, salt, hashed_password = user.strip().split(":")
+                                    word = first + second + third + fourth + fifth + sixth + seventh + eigth
+                                    # Hash the word with the salt and compare it to the hashed password
+                                    word_hash = hashlib.sha256(
+                                        (word.strip() + salt).encode()).hexdigest()
+                                    if word_hash == hashed_password:
+                                        print(f"Found password for user {username}: {word}")
+                                        break
+\end{lstlisting}
+In this script we try all possible combination of type able string of length 1 to 8 for each user, but this require an incredible amount of combination, the type able characters are 128 and we do 128 power of 8 tries for each user (ten users), the script is running from three days, but until now doesn't find any matching password. This script doesn't guarantee to find the password, because the password could be longer than eighth characters. \\
+In summary these scripts all works but i doesn't succeed to find any of the passwords, it is simply needed a dictionary with the correct passwords, but i didn't find it. With the right dictionary and a bit of luck it is very fast to find the match.\\
+In the email there are all files used!
+
+\end{document}

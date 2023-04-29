@@ -1,0 +1,75 @@
+\UseRawInputEncoding
+\documentclass{article}
+
+% Language setting
+\usepackage[english]{babel}
+\usepackage{pmboxdraw}
+\usepackage[a4paper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Homework 09\\"Shamir secret sharing"}
+
+\author{Andrea Panceri 1884749}
+
+\begin{document}
+\maketitle
+
+\section{Homework}
+Shamir secret sharing is a method for distributing a secret among a group of participants, such that any k of them can reconstruct the secret, but fewer than k participants cannot. It is based on the idea of polynomial interpolation, and can be implemented using a finite field.\\
+To implement Shamir secret sharing in Python, you can start by defining a function to create a new secret and a pair (n, k). The secret can be any piece of information that we want to share, such as a password or a message. The pair (n, k) specifies the number of participants and the minimum number of participants required to reconstruct the secret.Now we report the function that are needed:
+\begin{lstlisting}
+def define_secret(secret):
+    return secret
+
+def define_pair(n, k):
+    return (n, k)
+\end{lstlisting}
+Next the function to generate the fragments of the secret. To do this, you can create a polynomial of degree k-1 --- p(x), with the secret as the constant term a(0) and random coefficients for the other terms. We can then evaluate this polynomial at n different points to obtain the fragments.
+\begin{lstlisting}
+import random
+def generate_fragments(secret, n, k):
+    # Create a polynomial of degree k-1 with secret as the constant term
+    coefficients = [secret] + [random.randint(0, prime) for i in range(k-1)]
+    # Evaluate the polynomial at n different points to obtain the fragments
+    fragments = [(i, sum([coefficients[j] * (i ** j) for j in range(k)])) 
+                    for i in range(1, n+1)]
+    return fragments
+\end{lstlisting}
+The polynomial p(x) and the secret are not returned. Only the fragments, which are the evaluations of p(x) at n different points, are returned. The polynomial p(x) and the secret are used to generate the fragments, but they are not included in the final output of the generate\_fragments function. Instead, the function returns a list of n tuples, each containing an x-value and a y-value. These x-values and y-values represent the evaluations of p(x) at n different points, and they can be used to reconstruct the secret using polynomial interpolation. Prime is a prime number greater then secret(Integer representation of sequence of bits) and greater then n. To reconstruct the secret, a recipient would need to obtain a minimum of k fragments and use them to interpolate the original polynomial. The constant term of the interpolated polynomial would be the secret.\\
+Finally the function to reconstruct the secret given k' >= k fragments. To do this, you can use polynomial interpolation to reconstruct the polynomial and then extract the constant term p(0) = secret, which is the original secret.
+\begin{lstlisting}
+import numpy as np
+def reconstruct_secret(fragments, k):
+    # Use polynomial interpolation to reconstruct the polynomial
+    x_values, y_values = zip(*fragments)
+    polynomial = np.polyfit(x_values, y_values, k-1)
+    # Extract the constant term, which is the original secret
+    secret = polynomial[-1]
+    return secret
+\end{lstlisting}
+The reconstruct\_secret function takes a list of k fragments and uses polynomial interpolation to reconstruct the original polynomial used to generate the fragments. The reconstruct\_secret function begins by unzipping the list of fragments into two separate lists: x\_values and y\_values. These lists contain the x-values and y-values of the k fragments, respectively. The function then uses the polyfit function from the NumPy library to fit a polynomial of degree k-1 to the x-values and y-values. Finally, the function extracts the constant term of the interpolated polynomial and returns it as the secret. In the context of SSS, the constant term of the polynomial is the secret that was originally divided into fragments. Here an example:
+\begin{lstlisting}
+secret = 15, n = 17 , k = 11
+fragments = generate_fragments(15,17,11)
+print(fragments)
+secret = reconstruct_secret(fragments,11)
+print(secret)
+
+output:
+[(1, 136), (2, 25155), (3, 1175958), (4, 19378567), (5, 173813700), 
+(6, 1052347611), (7, 4843968130),(8, 18221303103), (9, 58712822592)
+(10, 167382362035), (11, 432091211886), (12, 1027513260855),
+(13, 2280464615548), (14, 4772053809867), (15, 9491715223770),
+(16, 18062414713711), (17, 33061270777080)]
+
+15.000274768825786 ==> p(0) = secret, all work perfectly
+\end{lstlisting}
+It very easy to find a prime number greater then n and secret, we don't report the code for it.
+\end{document}

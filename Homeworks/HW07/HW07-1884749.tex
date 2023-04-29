@@ -1,0 +1,163 @@
+\UseRawInputEncoding
+\documentclass{article}
+
+% Language setting
+\usepackage[english]{babel}
+\usepackage{pmboxdraw}
+
+\usepackage[a4paper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Homework 07\\"C script using OpenSSL"}
+
+\author{Andrea Panceri 1884749}
+
+\begin{document}
+\maketitle
+
+\section{Symmetric Encryption}
+Symmetric encryption is a type of encryption that uses the same secret key for both the encryption and decryption processes. This means that the same key is used to convert plaintext (unencrypted) data into ciphertext (encrypted data) and back again.\\
+Symmetric encryption is fast and efficient, making it well-suited for bulk data encryption and decryption. It is also relatively easy to implement, which has made it a popular choice for many applications.\\
+However, symmetric encryption has some limitations. One major limitation is that the same key must be shared between the sender and receiver of the encrypted message, which can be difficult to manage in certain situations. Additionally, if the key is compromised or lost, the data can no longer be decrypted, making it important to protect the key and have a plan in place for key management.\\
+Now we show a C script that use OpenSSL for implement symmetric encryption using AES: (For run this script it must be downloaded the openssl library and insert in the same folder of the c file)
+\begin{lstlisting}
+#include <stdio.h>
+#include <string.h>
+#include <openssl/aes.h>
+#include <openssl/evp.h>
+
+int main() {
+    // Set up the key and initialization vector (IV)
+    unsigned char key[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+    unsigned char iv[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                          0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+
+    // Set up the input and output buffers
+    unsigned char inbuf[] = "Text we want to encrypt (the plaintext).";
+    size_t inlen = strlen(inbuf);
+    unsigned char outbuf[inlen];
+    size_t outlen;
+
+    // Set up the cipher context for encryption
+    EVP_CIPHER_CTX *enc_ctx;
+    enc_ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(enc_ctx, EVP_aes_128_cbc(), NULL, key, iv);
+
+    // Encrypt the data
+    EVP_EncryptUpdate(enc_ctx, outbuf, &outlen, inbuf, inlen);
+    size_t tmplen;
+    EVP_EncryptFinal_ex(enc_ctx, outbuf + outlen, &tmplen);
+    outlen += tmplen;
+
+    // Print the encrypted data
+    for (int i = 0; i < outlen; i++) {
+        printf("%02x", outbuf[i]);
+    }
+    printf("\n");
+
+    // Set up the cipher context for decryption
+    EVP_CIPHER_CTX *dec_ctx;
+    dec_ctx = EVP_CIPHER_CTX_new();
+    EVP_DecryptInit_ex(dec_ctx, EVP_aes_128_cbc(), NULL, key, iv);
+
+    // Decrypt the data
+    unsigned char decrypted[outlen];
+    size_t decrypted_len;
+    EVP_DecryptUpdate(dec_ctx, decrypted, &decrypted_len, outbuf, outlen);
+    size_t tmp_decrypted_len;
+    EVP_DecryptFinal_ex(dec_ctx, decrypted + decrypted_len, &tmp_decrypted_len);
+    decrypted_len += tmp_decrypted_len;
+
+    // Print the decrypted data
+    decrypted[decrypted_len] = '\0';
+    printf("%s\n", decrypted);
+
+    // Clean up
+    EVP_CIPHER_CTX_free(enc_ctx);
+    EVP_CIPHER_CTX_free(dec_ctx);
+
+    return 0;
+}
+\end{lstlisting}
+The openssl/aes.h and openssl/evp.h header files are included to provide access to the AES and EVP functions. The key and initialization vector (IV) are defined as arrays of bytes. The key is used to encrypt and decrypt the data, while the IV is used to ensure that the same input data is encrypted differently each time. The input and output buffers are set up. The inbuf array holds the data to be encrypted, and the outbuf array will hold the encrypted data. The cipher context for encryption is set up using the EVP\_CIPHER\_CTX\_new function, and the encryption is initialized using the EVP\_EncryptInit\_ex function. The EVP\_EncryptUpdate and EVP\_EncryptFinal\_ex functions are used to encrypt the data in the inbuf array and store the encrypted data in the outbuf array. The encrypted data is printed in hexadecimal format. The cipher context for decryption is set up using the EVP\_CIPHER\_CTX\_new and EVP\_DecryptInit\_ex functions. The EVP\_DecryptUpdate and EVP\_DecryptFinal\_ex functions are used to decrypt the data in the outbuf array and store the decrypted data in the decrypted array. The decrypted data is printed as a string. The cipher contexts are cleaned up using the EVP\_CIPHER\_CTX\_free function.
+\section{Digital Signature}
+Digital signatures are a way to verify the authenticity and integrity of a digital document or message. They are used to ensure that a document or message has not been tampered with during transmission and that it was actually created by the claimed sender.\\
+To create a digital signature, the sender first generates a hash of the document or message using a cryptographic hash function. The sender then encrypts the hash using their private key, creating the digital signature. The signature, along with the document or message, is then sent to the recipient.\\
+To verify the digital signature, the recipient first decodes the signature using the sender's public key. The recipient then generates a new hash of the received document or message and compares it to the decrypted hash. If the two hashes match, the signature is considered to be valid, indicating that the document or message has not been tampered with and that it was indeed sent by the claimed sender.\\
+Here is an example of how you can use the openssl library to create and verify a digital signature in C:
+\begin{lstlisting}
+#include <stdio.h>
+#include <string.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+
+int main() {
+    // Set up the input data
+    unsigned char data[] = "Document message that we want sign";
+    size_t data_len = strlen(data);
+
+    // Load the private key
+    FILE *pkey_file = fopen("private_key.pem", "r");
+    EVP_PKEY *pkey;
+    pkey = PEM_read_PrivateKey(pkey_file, NULL, NULL, NULL);
+    fclose(pkey_file);
+
+    // Set up the signature context
+    EVP_MD_CTX *mdctx;
+    mdctx = EVP_MD_CTX_create();
+    EVP_SignInit_ex(mdctx, EVP_sha256(), NULL);
+    EVP_SignUpdate(mdctx, data, data_len);
+
+    // Generate the signature
+    size_t sig_len;
+    unsigned char sig[EVP_PKEY_size(pkey)];
+    EVP_SignFinal(mdctx, sig, &sig_len, pkey);
+
+    // Clean up
+    EVP_MD_CTX_destroy(mdctx);
+    EVP_PKEY_free(pkey);
+
+    // Load the public key
+    FILE *pubkey_file = fopen("public_key.pem", "r");
+    EVP_PKEY *pubkey;
+    pubkey = PEM_read_PUBKEY(pubkey_file, NULL, NULL, NULL);
+    fclose(pubkey_file);
+
+    // Set up the verification context
+    EVP_MD_CTX *v_ctx;
+    v_ctx = EVP_MD_CTX_create();
+    EVP_VerifyInit_ex(v_ctx, EVP_sha256(), NULL);
+    EVP_VerifyUpdate(v_ctx, data, data_len);
+
+    // Verify the signature
+    if (EVP_VerifyFinal(v_ctx, sig, sig_len, pubkey) == 1) {
+        printf("Signature verification successful.\n");
+    } else {
+        printf("Signature verification failed.\n");
+    }
+
+    // Clean up
+    EVP_MD_CTX_destroy(v_ctx);
+    EVP_PKEY_free(pubkey);
+
+    return 0;
+}
+\end{lstlisting}
+This code first loads the private key from a file and sets up the signature context using the EVP\_MD\_CTX\_create and EVP\_SignInit\_ex functions. Then, the EVP\_SignUpdate and EVP\_SignFinal functions are used to generate the signature and store it in the sig array.\\
+Next, the public key is loaded from a file and the verification context is set up using the EVP\_MD\_CTX\_create and EVP\_VerifyInit\_ex functions. The EVP\_VerifyUpdate and EVP\_VerifyFinal functions are used to verify the signature. If the verification is successful, a message is printed.\\
+Finally, the contexts and keys are cleaned up using the EVP\_MD\_CTX\_destroy and EVP\_PKEY\_free functions, and the main function returns 0 to indicate success.\\
+For generate the pair of key i have used these openssl commands:
+\begin{lstlisting}
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private_key.pem
+openssl rsa -in private_key.pem -pubout -out public_key.pem
+\end{lstlisting}
+\end{document}

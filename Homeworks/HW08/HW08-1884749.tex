@@ -1,0 +1,145 @@
+\UseRawInputEncoding
+\documentclass{article}
+
+% Language setting
+\usepackage[english]{babel}
+\usepackage{pmboxdraw}
+
+\usepackage[a4paper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Homework 08\\"Python script using OpenSSL"}
+
+\author{Andrea Panceri 1884749}
+
+\begin{document}
+\maketitle
+
+\section{Symmetric Encryption}
+Symmetric encryption is a type of encryption that uses the same secret key for both the encryption and decryption processes. This means that the same key is used to convert plaintext (unencrypted) data into ciphertext (encrypted data) and back again.\\
+Symmetric encryption is fast and efficient, making it well-suited for bulk data encryption and decryption. It is also relatively easy to implement, which has made it a popular choice for many applications.\\
+However, symmetric encryption has some limitations. One major limitation is that the same key must be shared between the sender and receiver of the encrypted message, which can be difficult to manage in certain situations. Additionally, if the key is compromised or lost, the data can no longer be decrypted, making it important to protect the key and have a plan in place for key management.\\
+Now we show a python script that use openssl for implement symmetric encryption using AES:
+\begin{lstlisting}
+import base64
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import hashes, padding
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.backends import default_backend
+
+# Generate a random secret key
+password = b"An arbitrary strong password"
+salt = b"An arbitrary salt: Ex: 30"
+kdf = PBKDF2HMAC(
+    algorithm=hashes.SHA256(),
+    length=24,  # set key size to 24 bytes
+    salt=salt,
+    iterations=100000
+)
+key = base64.urlsafe_b64encode(kdf.derive(password))
+
+# Encrypt some data
+data = b"The plaintext that you want to encrypt"
+padder = padding.PKCS7(algorithms.AES.block_size).padder()
+padded_data = padder.update(data) + padder.finalize()
+
+cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+encryptor = cipher.encryptor()
+ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+
+# Decrypt the data
+decryptor = cipher.decryptor()
+plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+
+# Unpad the decrypted data using PKCS#7 padding
+unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+unpadded_data = unpadder.update(plaintext) + unpadder.finalize()
+
+# Print the original data and the decrypted data to check that they match
+print(f"Original data: {data}")
+print(f"Cipher text: {ciphertext}")
+print(f"Decrypted data: {unpadded_data}")
+\end{lstlisting}
+This script first generates a random secret key using the PBKDF2 (Password-Based Key Derivation Function 2) algorithm, using SHA256 aògorithm, producing a key for AES algorithm of 256 bits, we used an high number of iteration for a more secure key. Then it uses the Cipher class from the cryptography library to create an encryptor and a decryptor for the AES algorithm with the generated key. The script then uses the encryptor to encrypt some data, and the decryptor to decrypt the encrypted data. Finally, it prints the original data and the decrypted data to the console to ensure that the decryption process was successful. Before encrypt the data for resolve the problem of block size, we add padding and unpadding after decryption. For completeness we report an example of the run of the script:
+\begin{lstlisting}
+Original data: b'Example for HW08'
+Cipher text: b'\x9c\xe9\xe3\xd8\xdd\xd9\....'
+Decrypted data: b'Example for HW08'
+\end{lstlisting}
+\section{Digital Signature}
+Digital signatures are a way to verify the authenticity and integrity of a digital document or message. They are used to ensure that a document or message has not been tampered with during transmission and that it was actually created by the claimed sender.\\
+To create a digital signature, the sender first generates a hash of the document or message using a cryptographic hash function. The sender then encrypts the hash using their private key, creating the digital signature. The signature, along with the document or message, is then sent to the recipient.\\
+To verify the digital signature, the recipient first decodes the signature using the sender's public key. The recipient then generates a new hash of the received document or message and compares it to the decrypted hash. If the two hashes match, the signature is considered to be valid, indicating that the document or message has not been tampered with and that it was indeed sent by the claimed sender.\\
+Here is an example of how you can use the openssl library to create and verify a digital signature in Python:
+\begin{lstlisting}
+import base64
+import hashlib
+import OpenSSL
+
+# Load the private key
+with open("private_key.pem", "rb") as f:
+    private_key = OpenSSL.crypto.load_privatekey(
+        OpenSSL.crypto.FILETYPE_PEM, f.read())
+
+# Load the certificate
+with open("certificate.pem", "rb") as f:
+    cert_data = f.read()
+cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_data)
+
+# Get the public key from the certificate
+pkey = cert.get_pubkey()
+
+# Generate a hash of the message
+message = b"The text document that we want to sign"
+hash_ = hashlib.sha256(message).digest()
+
+# Sign the hash using the private key
+signature = OpenSSL.crypto.sign(private_key, hash_, "sha256")
+
+# Encode the signature in base64
+encoded_signature = base64.b64encode(signature)
+
+# Verify the signature using the public key
+try:
+    OpenSSL.crypto.verify(cert, signature, hash_, "sha256")
+    print("Signature is valid.")
+except OpenSSL.crypto.Error:
+    print("Signature is invalid.")
+\end{lstlisting}
+The base64 library is used to encode the signature in base64, the hashlib library is used to generate a hash of the message, and the OpenSSL library is used to sign and verify the signature.\\
+\begin{lstlisting}
+with open("private_key.pem", "rb") as f:
+    private_key = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, f.read())
+\end{lstlisting}
+This block of code loads the private key from the private\_key.pem file. The load\_privatekey function is used to parse the PEM-formatted key and create an OpenSSL.crypto.PKey object.
+\begin{lstlisting}
+with open("certificate.pem", "rb") as f:
+    cert_data = f.read()
+cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_data)
+\end{lstlisting}
+This block of code loads the certificate from the certificate.pem file. The load\_certificate function is used to parse the PEM-formatted certificate and create an OpenSSL.crypto.X509 object.
+\begin{lstlisting}
+pkey = cert.get_pubkey()
+\end{lstlisting}
+This line of code obtains the public key from the certificate using the get\_pubkey method of the X509 object. The public key is returned as an OpenSSL.crypto.PKey object.
+\begin{lstlisting}
+message = b"The quick brown fox jumps over the lazy dog."
+hash_ = hashlib.sha256(message).digest()
+\end{lstlisting}
+This block of code generates a hash of the message using the SHA-256 hash function. The digest method of the hashlib.sha256 object returns the hash as a bytes object.
+\begin{lstlisting}
+  signature = OpenSSL.crypto.sign(private_key, hash_, "sha256")  
+\end{lstlisting}
+This line of code uses the sign function
+\\\\
+In the email there are all files used!
+
+\end{document}
